@@ -7,7 +7,7 @@
 var express = require("express");
 var handlebars = require("express-handlebars").create({defaultLayout: 'main'});
 var	bodyParser = require('body-parser');
-var mysql = require('mysql');
+var mysql = require('dbcon.js');
 
 var app = express();
 
@@ -23,23 +23,28 @@ app.engine('handlebars', handlebars.engine); //apply h engine to h extensions
 app.set('view engine', 'handlebars'); //omit h extension for renders
 
 
-//MySQL connection pool
-var pool = mysql.createPool({
-  host  : 'localhost',
-  user  : 'student',
-  password: 'default',
-  database: 'student'
+//retrieve table data
+app.get('/',function(req,res,next){
+  var context = {};
+  mysql.pool.query('SELECT * FROM workouts', function(err, rows, fields){
+    if(err){
+      next(err);
+      return;
+    }
+    context.results = JSON.stringify(rows);
+    res.render('home', context);
+  });
 });
 
-
-app.get('/', function(req,res,next){
-	var context = {};
-	pool.query('SELECT * FROM workouts', function(err, rows, fields){
+//insert a name
+app.get('/insert', function(req,res,next){
+	var context = {}
+	mysql.pool.query("INSERT INTO workouts (`name`) VALUES (?)", [req.query.name], function(err, result){
 		if(err){
 			next(err);
 			return;
 		}
-		context.results = JSON.stringify(rows);
+		context.results = "Inserted id " + result.insertId;
 		res.render('home', context);
 	});
 });
@@ -47,7 +52,7 @@ app.get('/', function(req,res,next){
 //get request to /reset-table to create new table
 app.get('/reset-table',function(req,res,next){
   var context = {};
-  pool.query("DROP TABLE IF EXISTS workouts", function(err){
+  mysql.pool.query("DROP TABLE IF EXISTS workouts", function(err){
     var createString = "CREATE TABLE workouts("+
     "id INT PRIMARY KEY AUTO_INCREMENT,"+
     "name VARCHAR(255) NOT NULL,"+
@@ -55,7 +60,7 @@ app.get('/reset-table',function(req,res,next){
     "weight INT,"+
     "date DATE,"+
     "lbs BOOLEAN)";
-    pool.query(createString, function(err){
+    mysql.pool.query(createString, function(err){
       context.results = "Table reset";
       res.render('home',context);
     })
@@ -66,7 +71,7 @@ app.get('/reset-table',function(req,res,next){
 //insert into database
 app.get('/insert', function(req,res,next){
 	var context = {};
-	pool.query("INSERT INTO workouts (`name`) VALUES (?)", [req.query.name], function(err, result){
+	mysql.pool.query("INSERT INTO workouts (`name`) VALUES (?)", [req.query.name], function(err, result){
 		if(err){
 			next(err);
 			return;
