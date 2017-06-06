@@ -1,1 +1,57 @@
 {{results}}
+
+<div>
+	<form id="newWrktForm" method="get">
+		<label for="name">Exercise Name:</form>
+		<input type="text" id="name" name="name">
+		<br>
+		<label for="reps">Number of reps:</label>
+		<input type="number" id="reps" name="reps">
+		<br>
+		<label for="weight">Weight:</label>
+		<input type="number" id="weight" name="weight">
+		<br>
+		<label for="date">Date:</label>
+		<input type="date" name="date" id="date">
+		<br>
+		<label for="lbs">Unit:</label>
+		<select name="lbs" id="lbs">
+			<option value="1">Lbs</option>
+			<option value="0">Kgs</option>
+		</select>
+		<br>
+		<input type="submit" name="addWorkout" id="addWrktBtn">
+	</form>
+</div>
+<br>
+<div>
+	<table id="workoutTbl">
+		<tr>
+			<th>Name:</th>
+			<th>Reps:</th>
+			<th>Weight:</th>
+			<th>Units:</th>
+			<th>Date:</th>
+		</tr>
+		{{#if rows}}
+			{{#each rows}}
+			<tr>
+			<td>{{this.name}}</td>
+			<td>{{this.reps}}</td>
+			<td>{{this.weight}}</td>
+			<td>{{this.units}}</td>
+			<td>{{this.dateFixed}}</td>
+			<td>
+				<form>
+					<input type="hidden" name="id" value="{{this.id}}">
+					<input type="submit" name="edit" value="Edit">
+					<input type="submit" name="delete" value="Delete">
+				</form>
+			</td>
+			</tr>
+			{{/each}}
+		{{/if}}
+	</table>
+</div>
+
+<script src="script.js"></script>

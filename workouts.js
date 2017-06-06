@@ -12,7 +12,9 @@ var mysql = require('dbcon.js');
 var app = express();
 
 //set the port number
-app.set('port', 5121);
+app.set('port', 5122);
+
+app.use(express.static('public'));
 
 //parse json and url
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -23,31 +25,96 @@ app.engine('handlebars', handlebars.engine); //apply h engine to h extensions
 app.set('view engine', 'handlebars'); //omit h extension for renders
 
 
-//retrieve table data
+//retrieve table data and render homepage
 app.get('/',function(req,res,next){
-  var context = {};
-  mysql.pool.query('SELECT * FROM workouts', function(err, rows, fields){
-    if(err){
-      next(err);
-      return;
-    }
-    context.results = JSON.stringify(rows);
-    res.render('home', context);
-  });
+	var context = {};
+  
+	mysql.pool.query('SELECT * FROM workouts', function(err, rows, fields){
+  		if(err){
+        	next(err);
+        	return;
+      	}
+		context.rows = rows;
+
+		//include fixed properties for readability
+		for(var i=0; i < context.rows.length; i++){
+			//insert a units property
+			context.rows[i].units = context.rows[i].lbs ? "lbs" : "kgs";
+			context.rows[i].dateFixed =  new Date(context.rows[i].date).toDateString();
+		}
+		res.render('home', context);
+    });
 });
 
-//insert a name
-app.get('/insert', function(req,res,next){
-	var context = {}
-	mysql.pool.query("INSERT INTO workouts (`name`) VALUES (?)", [req.query.name], function(err, result){
+
+//workout update handler
+app.post('/update', function(req, res, next){
+	mysql.pool.query("UPDATE workouts SET name=?, reps=?, weight=?, lbs=?, date=? WHERE id=? ", 
+	[req.body.name, req.body.reps, req.body.weight, req.body.lbs, req.body.date, req.body.id], 
+	function(err, result){
 		if(err){
-			next(err);
+			res.type("application/json");
+			res.status(500);
+			res.send();
 			return;
 		}
-		context.results = "Inserted id " + result.insertId;
-		res.render('home', context);
+		else {
+			//need to send SELECT query to get updated row info to send back
+			sendRowById(req.body.id, res);
+		}
 	});
 });
+
+
+//handle workout add request
+app.post('/add', function(req, res, next){
+	
+	mysql.pool.query("INSERT INTO workouts SET ?", req.body, function(err, result){
+		if(err) {
+			res.type("application/json");
+			res.status(500);
+			res.send();
+			return;
+		}
+		sendRowById(result.insertId, res);	
+	});
+});
+
+
+/**************************************************
+		sendRowById(id, res)
+gets row information for mysql db and sends it
+via express res.send() call
+****************************************************/
+function sendRowById(id, res){
+	mysql.pool.query("SELECT * FROM workouts WHERE id=?", [id], function(err, rows, fields){
+		res.type("application/json");
+		if(err){
+			res.status(500);
+			res.send();
+			return;
+		}
+		res.status(200)
+		res.send( JSON.stringify( rows[0] ));
+	});
+}
+
+
+//handle workout delete requests
+app.post('/delete', function(req, res, next){
+
+	mysql.pool.query("DELETE FROM workouts WHERE id=?", [req.body.id], function(err, rows, fields){
+		if(err){
+			res.status(500);
+		}
+		else {
+			res.status(200);
+		}
+		res.type("application/json");
+		res.send(); //only need to send 200 status
+	});
+});
+
 
 //get request to /reset-table to create new table
 app.get('/reset-table',function(req,res,next){
@@ -62,23 +129,9 @@ app.get('/reset-table',function(req,res,next){
     "lbs BOOLEAN)";
     mysql.pool.query(createString, function(err){
       context.results = "Table reset";
-      res.render('home',context);
+      res.render('reset' ,context);
     })
   });
-});
-
-
-//insert into database
-app.get('/insert', function(req,res,next){
-	var context = {};
-	mysql.pool.query("INSERT INTO workouts (`name`) VALUES (?)", [req.query.name], function(err, result){
-		if(err){
-			next(err);
-			return;
-		}
-		context.results = "Inserted id" + result.insertId;
-		res.render('home', context);
-	});
 });
 
 
@@ -91,11 +144,11 @@ app.use(function(req,res){
 //500 catch all
 app.use(function(e, req, res, next){
 	console.log(e.stack);
-//	res.type("plain/text");
 	res.status(500);
 	res.render("500");
 });
 
 app.listen( app.get('port'), function() {
 	console.log("Express started on http:flip3.engr.oregonstate.edu:" + app.get('port')+ " ; press Ctrl-C to terminate.");
-})
+});
+
